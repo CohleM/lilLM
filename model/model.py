@@ -183,3 +183,18 @@ class FFN(nn.Module):
 
 
 
+class RMSNorm(nn.Module):
+    def __init__(self,d_model,norm_eps=1e-6):
+        super().__init__()
+        self.gain = nn.Parameter(torch.ones(d_model))
+        self.eps = norm_eps
+    def _norm(self,x):
+        return x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        
+    def forward(self,x):
+        # convert to higher precision float32 for rms for accuracy, then back to their original type
+        out = self._norm(x.float()).type_as(x) 
+        return self.gain * out
+
+
+
