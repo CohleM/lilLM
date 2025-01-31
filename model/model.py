@@ -151,3 +151,35 @@ class Attention(nn.Module):
         
         return out
 
+
+
+
+
+class FFN(nn.Module):
+    def __init__(self,d_model, hidden_dim, multiple_of, dropout):
+        super().__init__()
+        self.d_model = d_model
+        if hidden_dim is None:
+            hidden_dim = 4*d_model
+            hidden_dim = int(2/3 * hidden_dim)
+            hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of) # make hidden dim multiple of {multiple_of}
+        
+        self.w1 = nn.Linear(d_model, hidden_dim, bias=False) # W
+        self.w2 = nn.Linear(hidden_dim, d_model, bias=False) # W2
+        self.w3 = nn.Linear(d_model, hidden_dim, bias=False) # V
+
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self,x):
+        # Swish(x) = x * sigmoid(ßx)
+        # GLU(x) = sigmoid(xW+b)⊗(xV+c)
+        # SwiGLU(x) = Swish(Wx + b) ⊗ (Vx+c)
+        # Omit bias -> SwiGLU(x) = Swish(xW) ⊗ (xV)
+        # FFFNswiglu = SwiGLU(x)W2, with b parameter=1
+        # since there is additional parameter V when compared to what's used in transformers, 
+        # we reduce the output dimension of W,V by 2/3 and input dimension of W2 by 2/3
+        
+        return self.dropout(self.w2(F.silu(self.w1(x))*self.w3(x)))
+
+
+
