@@ -198,3 +198,24 @@ class RMSNorm(nn.Module):
 
 
 
+class TransformerBlock(nn.Module):
+    def __init__(self,config):
+        super().__init__()
+        self.attn = Attention(config)
+        self.ffn = FFN(
+            config.d_model,
+            config.hidden_dim,
+            config.multiple_of,
+            config.dropout
+        )
+        self.attn_norm = RMSNorm(config.d_model, config.eps)
+        self.ffn_norm = RMSNorm(config.d_model, config.eps)
+    
+    def forward(self,x,start_pos, freq_cis):
+        x = x + self.attn(self.attn_norm(x),start_pos, freq_cis)
+        x = x + self.ffn(self.ffn_norm(x))
+        return x
+
+
+
+
