@@ -1,32 +1,37 @@
-import math
+import os
+import random
+import time
 import torch
 from torch import nn
+import torch.nn.functional as F
+import numpy as np
+from dataclasses import dataclass
+import math
 
 
 
-def data_loader(data_path, split):
-    filename = os.path.join(data_path, f'{split}.bin')
-    data = np.memmap(filename, mode='r')
-    ids = torch.randint((len(data)-block_size), (batch_size,))
+@dataclass
+class Config:
+    vocab_size: int = 2**13
+    d_model: int = 512
+    n_layers: int = 12
+    max_seq_len: int = 16
+    q_heads: int = 16
+    kv_heads: int = 8
+    dropout: float = 0.1
+    max_batch_size: int = 32
+    hidden_dim: int = 2048
+    multiple_of = 256
+    eps: float = 1e-6
+    
+    
 
-    X = torch.stack([ torch.from_numpy(data[i:i+block_size].astype(np.int64)) for i in ids])
-    Y = torch.stack([ torch.from_numpy(data[i+1:i+1+block_size].astype(np.int64)) for i in ids])
-
-    if device_type=='cuda':
-        # pin to (page-locked) memory in the host (CPU) memory, so the write to GPU is faster, also enable async data transfer(non_blocking=True)
-        return X.pin_memory().to(device,non_blocking=True), Y.pin_memory().to(device,non_blocking=True)
-    else:
-        return X.to(device), Y.to(device)
-
-
-
-def precompute_freq_cis(dim: int, end: int, theta: float = 10000.0):
+def precompute_cis(dim: int, end: int, theta: float = 10000.0):
     freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
     t = torch.arange(end, device=freqs.device) 
     freqs = torch.outer(t, freqs).float()  
     pos_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
     return pos_cis
-
 
 def apply_rotary_pe(xq, xk, cis):
     
@@ -44,7 +49,7 @@ def apply_rotary_pe(xq, xk, cis):
     xq_ = torch.view_as_complex(xq.view(*xq.shape[:-1],-1,2)) 
     xk_ = torch.view_as_complex(xk.view(*xk.shape[:-1],-1,2))
     
-    print(cis.shape, xq_.shape, xk_.shape)
+#     print(cis.shape, xq_.shape, xk_.shape)
     
     cis = reshape_for_broadcast(cis,xq_)
     
@@ -55,7 +60,6 @@ def apply_rotary_pe(xq, xk, cis):
     
     return xq_out.type_as(xq), xk_out.type_as(xk)
     
-
 def repeat_kv(x, n_rep):
     B,T,kv_heads, head_dim = x.shape
     if n_rep==1:
@@ -67,7 +71,7 @@ def repeat_kv(x, n_rep):
                 .reshape(B,T,kv_heads * n_rep, head_dim)
                )
 
-
+    
 class Attention(nn.Module):
     def __init__(self,config):
         super().__init__()
@@ -150,9 +154,7 @@ class Attention(nn.Module):
         out = self.wo(out)
         
         return out
-
-
-
+        
 
 
 class FFN(nn.Module):
@@ -181,8 +183,6 @@ class FFN(nn.Module):
         
         return self.dropout(self.w2(F.silu(self.w1(x))*self.w3(x)))
 
-
-
 class RMSNorm(nn.Module):
     def __init__(self,d_model,norm_eps=1e-6):
         super().__init__()
@@ -195,11 +195,11 @@ class RMSNorm(nn.Module):
         # convert to higher precision float32 for rms for accuracy, then back to their original type
         out = self._norm(x.float()).type_as(x) 
         return self.gain * out
-
-
-
+    
+    
+    
 class TransformerBlock(nn.Module):
-    def __init__(self,config):
+    def __init__(self,layer_id, config):
         super().__init__()
         self.attn = Attention(config)
         self.ffn = FFN(
@@ -208,14 +208,49 @@ class TransformerBlock(nn.Module):
             config.multiple_of,
             config.dropout
         )
+        self.layer_id = layer_id
         self.attn_norm = RMSNorm(config.d_model, config.eps)
         self.ffn_norm = RMSNorm(config.d_model, config.eps)
     
-    def forward(self,x,start_pos, freq_cis):
+    def forward(self, x, start_pos, freq_cis):
         x = x + self.attn(self.attn_norm(x),start_pos, freq_cis)
         x = x + self.ffn(self.ffn_norm(x))
         return x
+    
+    
+    
 
 
+class LilLM(nn.Module):
+    def __init__(self,config):
+        super().__init__()
+        self.cfg = config
+        self.tok_emb = nn.Embedding(self.cfg.vocab_size, self.cfg.d_model) # embedding layer
+        freq_cis = precompute_cis(config.d_model//config.q_heads, config.max_seq_len)
+        self.register_buffer('freq_cis', freq_cis, persistent = False)
+        self.transformer_blocks = nn.ModuleList([TransformerBlock(layer_id, config) for layer_id in range(config.n_layers)])
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size) # project 512 dim -> vocab_size for classification
+        self.norm = RMSNorm(config.d_model, config.eps)
+        self.tok_emb.weight = self.lm_head.weight # use the same weight for token's index -> embedding, and  embedding -> token's index
+    def forward(self,x, start_pos=0, targets=None):
+        B,T = x.shape
+        x = self.tok_emb(x) # (B,T,C)
+        
+        for block in self.transformer_blocks:
+            x = block(x,start_pos, self.freq_cis[:T])
+        
+        x = self.norm(x)
 
+        
+        if targets is not None:
+            logits = self.lm_head(x)
+            loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), targets.view(-1), ignore_index=-1)
 
+        else:
+            # only transform the last sequence, use of [] preserves the original shape
+            # alternatively, we can use logits = self.lm_head(x[:,-1:, :])
+            logits = self.lm_head(x[:,[-1], :]) 
+            loss = None
+    
+            
+        return logits,loss
