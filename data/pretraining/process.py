@@ -5,11 +5,14 @@ from datasets import load_dataset # huggingface dataset
 from tqdm import tqdm
 
 if __name__=='__main__':
-    tokenizer = AutoTokenizer.from_pretrained('gpt2')
+    file_path = '/Users/cohlem/Projects/Experimentation/lillm/model/tokenizer/'
+    tokenizer = AutoTokenizer.from_pretrained(file_path)
+#    tokenizer = AutoTokenizer.from_pretrained('gpt2')
 
     num_proc = 8
 
-    dataset = load_dataset('text', num_proc=num_proc,data_files = 'wiki.train.tokens') #for loading custom data
+    #dataset = load_dataset('text', num_proc=num_proc,data_files = 'input.txt') #for loading custom data
+    dataset = load_dataset("Elriggs/openwebtext-100k", num_proc=num_proc) #for loading custom data
     split_dataset = dataset['train'].train_test_split(test_size = 0.05, shuffle=True, seed=43)
     split_dataset['val'] = split_dataset.pop('test')
 
