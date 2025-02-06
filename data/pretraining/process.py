@@ -1,12 +1,18 @@
 import numpy as np
 import os
+import argparse
+
 from transformers import AutoTokenizer
 from datasets import load_dataset # huggingface dataset
 from tqdm import tqdm
 
 if __name__=='__main__':
-    file_path = '/Users/cohlem/Projects/Experimentation/lillm/model/tokenizer/'
-    tokenizer = AutoTokenizer.from_pretrained(file_path)
+    #file_path = '/Users/cohlem/Projects/Experimentation/lillm/model/tokenizer/'
+    parser = argparse.ArgumentParser(description='Loading the tokenizer')
+    parser.add_argument('--tokenizer_path', required=True, type=str, help='Path to tokenizer')
+    args = parser.parse_args()
+
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 #    tokenizer = AutoTokenizer.from_pretrained('gpt2')
 
     num_proc = 8
