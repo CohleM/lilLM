@@ -16,7 +16,10 @@ from contextlib import nullcontext
 from model.config import Config
 from model.model import LilLM
 
-data_path = ''
+cur_path = os.path.dirname(os.path.abspath(__file__))
+
+print('gg', cur_path)
+data_path = os.path.join(cur_path, 'data/pretraining')
 out_dir = ''
 
 batch_size = 10
@@ -196,7 +199,7 @@ while True:
         'num_iter' : num_iter,
         'config' : model_config
       }
-      torch.save(checkpoint, os.path.join(out_dir, 'best_model.pth'))
+      torch.save(checkpoint, os.path.join(out_dir, 'best_model.pt'))
 
   for micro_step in range(gradient_accumulation_steps):
     x,y = data_loader(data_path, 'train')
