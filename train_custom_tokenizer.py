@@ -23,6 +23,8 @@ def train_tokenizer(file_path):
     # <s> - start of sentence
     # </s> - end of sentence
     special_tokens = ["<unk>", "<s>", "</s>"]
+    special_tokens = special_tokens + [f'<r{i}>' for i in range(13)]  # total 16 special tokens, 13 reserved for later
+
     
     # set configs for BPE trainer, 
     trainer = trainers.BpeTrainer(
