@@ -22,13 +22,13 @@ print('gg', cur_path)
 data_path = os.path.join(cur_path, 'data/pretraining')
 out_dir = ''
 
-batch_size = 10
-block_size = 256
+batch_size = 64
+block_size = 512
 lr = 1e-6
-max_iters = 1000
+max_iters = 20000
 grad_clip = 1.0
-eval_interval = 200 # do eval every 2000 interval
-eval_iters = 10 # for accumulate eval losses for 200 iters
+eval_interval = 200 # do eval every 200 interval
+eval_iters = 20 # for accumulate eval losses for 200 iters
 best_val_loss = 1e9
 
 
@@ -46,7 +46,7 @@ dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported
 # 488 batch_size to do it in the single run, but our gpu can't fit it, so we divide further, i.e we accumulate gradient on smaller batch, once we
 # have accumulated gradients for 0.5M tokens, we do the update, otherwise just accumulate the gradients. keeping batch_size=16, block_size=1024, we need
 # divide into 0.5*1e6/(16*1024) steps, which we name gradient_accumulation_steps
-gradient_accumulation_steps = 5*8
+gradient_accumulation_steps = 16 
 init_from = 'scratch'
 
 
@@ -179,7 +179,7 @@ while True:
   # evaluation and log losses to wandb
   if num_iter % eval_interval == 0 and master_process:
     losses = estimate_losses()
-    print(f'num steps {num_iter} train loss:{losses["train"]} val loss: {losses["val"]} ')
+    print(f'Steps {num_iter} train loss:{losses["train"]} val loss: {losses["val"]} ')
     if wandb:
       wandb.log({
         'iter': num_iter,
@@ -202,6 +202,7 @@ while True:
       torch.save(checkpoint, os.path.join(out_dir, 'best_model.pt'))
 
   for micro_step in range(gradient_accumulation_steps):
+    t1 = time.time()
     x,y = data_loader(data_path, 'train')
     # x,y = torch.randint(0,10,(10,256)).to(device), torch.randint(0,10,(10,256)).to(device)
 
@@ -230,13 +231,13 @@ while True:
     torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
   scaler.step(optimizer)
-  print(f'Iteration =', num_iter,' loss =', loss.item() * gradient_accumulation_steps)
   # adjusts the loss scaling factor dynamically, eg, if prev step caused overflow
   # decrease scaling factor, else increase scaling factor
   scaler.update()
   optimizer.zero_grad(set_to_none=True)
   num_iter +=1
-
+  t2 = time.time()
+  print(f'Iteration =', num_iter,' loss =', loss.item() * gradient_accumulation_steps, 'time_taken=',t2-t1 )
   if num_iter > max_iters:
     break
 
