@@ -40,7 +40,7 @@ if __name__=='__main__':
 
         # Memory mapping of file to our array
         filename = os.path.join(os.path.dirname(__file__), f'{split}.bin')
-        arr = np.memmap(filename, dtype=np.uint8, mode='w+', shape=(arr_sz,)) 
+        arr = np.memmap(filename, dtype=np.uint16, mode='w+', shape=(arr_sz,)) 
 
         for b in tqdm(range(batch_size), desc=f'processing {filename}'):
             shard = dset.shard(num_shards=batch_size, index=b, contiguous=True).with_format('numpy')
