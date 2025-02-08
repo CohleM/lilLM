@@ -15,11 +15,11 @@ if __name__=='__main__':
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 #    tokenizer = AutoTokenizer.from_pretrained('gpt2')
 
-    num_proc = 100 
+    num_proc = 50 
 
-    #dataset = load_dataset('text', num_proc=num_proc,data_files = 'input.txt') #for loading custom data
-    dataset = load_dataset("Skylion007/openwebtext", num_proc=num_proc) #for loading custom data
-    split_dataset = dataset['train'].train_test_split(test_size = 0.05, shuffle=True, seed=43)
+    dataset = load_dataset('text', num_proc=num_proc,data_files = 'input.txt') #for loading custom data
+    #dataset = load_dataset("Skylion007/openwebtext", num_proc=num_proc) #for loading custom data
+    split_dataset = dataset['train'].train_test_split(test_size = 0.0010, shuffle=True, seed=43)
     split_dataset['val'] = split_dataset.pop('test')
 
     def tokenize(item):
