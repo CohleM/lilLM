@@ -52,7 +52,7 @@ init_from = 'scratch'
 
 # wandb logging
 wandb_project = 'LilLM'
-wandb_run_name = 'test_run_new'
+wandb_run_name = 'GPU_RUN'
 
 
 compile = True
