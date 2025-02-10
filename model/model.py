@@ -259,3 +259,37 @@ class LilLM(nn.Module):
 
 
         return logits,loss
+
+
+    @torch.no_grad()
+    def generate(self, x, eos, max_new_tokens=100, temperature=0.0, k=None):
+        # x is two dim, batch_size, seq_len
+        start_pos = 0
+        init_inference = True
+
+        while x.shape[1] < self.cfg.max_seq_len:
+
+            if init_inference:  # pass the first tokens
+                logits, _ = self(x, start_pos=start_pos, targets=None)
+                init_inference = False
+                start_pos += x.shape[-1]
+            else:  # Afterwards pass one token at a time
+                logits, _ = self(x[:, -1:], start_pos=start_pos, targets=None)
+                start_pos += 1
+
+            logits = logits[:, -1, :]
+
+            if k is not None:
+                logits = logits / temperature
+                v, _ = torch.top(logits, k=min(k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = -float('Inf')
+
+            probs = F.softmax(logits, dim=-1)
+            pred_token = torch.multinomial(probs, num_samples=1)
+
+            if pred_token == eos:
+                break
+
+            x = torch.cat((x, pred_token), dim=1)
+
+        return x
