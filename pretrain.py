@@ -114,7 +114,7 @@ def estimate_losses():
 # Data Loader
 def data_loader(data_path, split):
     filename = os.path.join(data_path, f'{split}.bin')
-    data = np.memmap(filename, mode='r')
+    data = np.memmap(filename, mode='r', dtype=np.uint16) # please make sure to load the bin file with correct dtype, this costed be some $$
     ids = torch.randint((len(data)-block_size), (batch_size,))
 
     X = torch.stack([ torch.from_numpy(data[i:i+block_size].astype(np.int64)) for i in ids])
@@ -201,6 +201,15 @@ while True:
       }
       torch.save(checkpoint, os.path.join(out_dir, 'best_model.pt'))
 
+  if (master_process and (num_iter % 250 == 0 or max_iters-1)) :
+    sample_prompt = 'Hi! I am a Language Model, and '
+    sample_token  = torch.tensor(tokenizer.encode(sample_prompt)).unsqueeze(dim=0).to(device)
+    for i in range(4):
+      # [[2]] is the ending token 
+      out = model.generate(sample_token, torch.tensor([[2]]).to(device))
+      print(f' {i} output: {tokenizer.decode(out.squeeze())}')
+
+
   for micro_step in range(gradient_accumulation_steps):
     t1 = time.time()
     x,y = data_loader(data_path, 'train')
@@ -237,7 +246,7 @@ while True:
   optimizer.zero_grad(set_to_none=True)
   num_iter +=1
   t2 = time.time()
-  print(f'Iteration =', num_iter,' loss =', loss.item() * gradient_accumulation_steps, 'time_taken=',t2-t1 )
+  print(f'Iteration: {num_iter} loss: {(loss.item() * gradient_accumulation_steps):.4f} time_taken: {(t2-t1):.2f}' )
   if num_iter > max_iters:
     break
 
