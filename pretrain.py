@@ -23,7 +23,7 @@ print("gg", cur_path)
 data_path = os.path.join(cur_path, "data/pretraining")
 out_dir = ""
 
-batch_size = 64
+batch_size = 128
 block_size = 512
 lr = 1e-6
 max_iters = 20000
@@ -54,9 +54,10 @@ dtype = (
 # 488 batch_size to do it in the single run, but our gpu can't fit it, so we divide further, i.e we accumulate gradient on smaller batch, once we
 # have accumulated gradients for 0.5M tokens, we do the update, otherwise just accumulate the gradients. keeping batch_size=16, block_size=1024, we need
 # divide into 0.5*1e6/(16*1024) steps, which we name gradient_accumulation_steps
-gradient_accumulation_steps = 16
+gradient_accumulation_steps = 8
 init_from = "scratch"
 
+print(dtype, 'available')
 
 # wandb logging
 wandb_project = "LilLM"
