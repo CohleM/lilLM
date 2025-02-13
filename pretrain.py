@@ -40,7 +40,7 @@ warmup_iters = 2000  # how many steps to warm up for
 lr_decay_iters = 600000  # should be ~= max_iters per Chinchilla
 min_lr = 6e-5  # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 learning_rate = 6e-4  # max learning rate
-
+running_mfu = -1
 
 device = (
     "cuda" if torch.cuda.is_available() else "cpu"
@@ -60,7 +60,7 @@ init_from = "scratch"
 
 # wandb logging
 wandb_project = "LilLM"
-wandb_run_name = "GPU_RUN"
+wandb_run_name = "GPU_RUN_NEW"
 
 
 compile = True
@@ -174,7 +174,7 @@ flops_per_model = calculate_transformer_flops(
     ffw_size=model_config.hidden_dim if model_config.hidden_dim is not None else 4*model_config.d_model,
     num_layers=model_config.n_layers
 )
-flops_per_step = flops_per_step * model_config.max_batch_size * gradient_accumulation_steps * ddp_world_size
+flops_per_step = flops_per_model * model_config.max_batch_size * gradient_accumulation_steps * ddp_world_size
 
 
     seq_len: int,
@@ -303,8 +303,9 @@ while True:
     dt = t2 - t1
     if num_iter % log_interval == 0 and master_process:
         if num_iter >=5:
-            flops_promised = 312e12
+            flops_promised = 312e12 # flops that we can do in A100 for bfloat16
             mfu = flops_per_step / (flops_promised * (dt))
+            running_mfu = running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
             print(
                 f"iteration: {num_iter} loss: {(loss.item() * gradient_accumulation_steps):.4f} time_taken: {(dt):.2f}, mfu : {mfu*100:.2f}%"
             )
