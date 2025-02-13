@@ -69,9 +69,17 @@ class Attention(nn.Module):
         self.cache_v = None
 
         self.attn_dropout = nn.Dropout(config.dropout)
+        self.resid_dropout = nn.Dropout(config.dropout)
+
+        self.flash = config.flash
+        self.dropout = config.dropout
+
         mask = torch.full((1,1,config.max_seq_len, config.max_seq_len), float('-inf')) # fill all elements by -inf
         mask = torch.triu(mask, diagonal=1) # only keep the values of the upper triangular matrix, others to 0
-        self.register_buffer('mask', mask, persistent=False) # register buffer, i.e not trainable parameter, also don't save in state dict
+        #self.register_buffer('mask', mask, persistent=False) # register buffer, i.e not trainable parameter, also don't save in state dict
+        if not self.flash:
+          print('Using slow attention')
+          self.register_buffer('mask', mask, persistent=False) # register buffer, i.e not trainable parameter, also don't save in state dict
 
 
 
@@ -124,15 +132,20 @@ class Attention(nn.Module):
 
         xq,xk,xv = xq.transpose(1,2), xk.transpose(1,2), xv.transpose(1,2) #transpose T,n_head cause we perform matrix mul on last two dims
 
-        attn_score = xq @ xk.transpose(-1,-2)/ math.sqrt(self.head_dim)
+    
+        if self.flash and T !=1:
+            out = F.scaled_dot_product_attention(xq, xk, xv,attn_mask=None, dropout_p=self.dropout, is_causal=True)
+        else:
 
-        attn_score = attn_score + self.mask[:,:,:T,:T] # cause its inputs don't always have max_seq_len
-        attn_score = torch.softmax(attn_score, dim=-1) #normalize and make -inf to 0
-        attn_score = self.attn_dropout(attn_score)
-        out = attn_score @ xv
+            attn_score = xq @ xk.transpose(-1,-2)/ math.sqrt(self.head_dim)
+
+            attn_score = attn_score + self.mask[:,:,:T,:T] # cause its inputs don't always have max_seq_len
+            attn_score = torch.softmax(attn_score, dim=-1) #normalize and make -inf to 0
+            attn_score = self.attn_dropout(attn_score)
+            out = attn_score @ xv
+
         out = out.transpose(1,2).contiguous().view(B,T,-1)
-
-        out = self.wo(out)
+        out = self.resid_dropout(self.wo(out))
 
         return out
 
