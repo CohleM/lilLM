@@ -266,6 +266,8 @@ while True:
     for micro_step in range(gradient_accumulation_steps):
         t1 = time.time()
         x, y = data_loader(data_path, "train")
+        if num_iter <= 2:
+            print(x,y)
         # x,y = torch.randint(0,10,(10,256)).to(device), torch.randint(0,10,(10,256)).to(device)
 
         if ddp:
