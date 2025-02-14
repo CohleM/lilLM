@@ -1,5 +1,5 @@
-import os
 import random
+import os
 import time
 import math
 
@@ -177,15 +177,6 @@ flops_per_model = calculate_transformer_flops(
 )
 flops_per_step = flops_per_model * model_config.max_batch_size * gradient_accumulation_steps * ddp_world_size
 
-
-    seq_len: int,
-    vocab_size: int,
-    d_model: int,
-    key_size: int,
-    num_heads: int,
-    ffw_size: int,
-    num_layers: int,
-
 if init_from == "scratch":
     model = LilLM(model_config)
 elif init_from == "resume":  # resume from a checkpoint
@@ -218,6 +209,8 @@ raw_model = model.module if ddp else model
 
 
 while True:
+    
+    t1 = time.time()
     # pick learning rate
     lr = get_lr(num_iter) if decay_lr else learning_rate
 
@@ -253,18 +246,7 @@ while True:
             }
             torch.save(checkpoint, os.path.join(out_dir, "best_model.pt"))
 
-    if master_process and (num_iter % 250 == 0 or max_iters - 1):
-        sample_prompt = "Hi! I am a Language Model, and "
-        sample_token = (
-            torch.tensor(tokenizer.encode(sample_prompt)).unsqueeze(dim=0).to(device)
-        )
-        for i in range(4):
-            # [[2]] is the ending token
-            out = model.generate(sample_token, torch.tensor([[2]]).to(device))
-            print(f" {i} output: {tokenizer.decode(out.squeeze())}")
-
     for micro_step in range(gradient_accumulation_steps):
-        t1 = time.time()
         x, y = data_loader(data_path, "train")
         if num_iter <= 2:
             print(x,y)
