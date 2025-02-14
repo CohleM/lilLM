@@ -255,7 +255,7 @@ class LilLM(nn.Module):
         x = self.tok_emb(x) # (B,T,C)
 
         for block in self.transformer_blocks:
-            x = block(x,start_pos, self.freq_cis[:T])
+            x = block(x,start_pos, self.freq_cis[start_pos: start_pos + T])
 
         x = self.norm(x)
 
@@ -275,17 +275,21 @@ class LilLM(nn.Module):
 
 
     @torch.no_grad()
-    def generate(self, x, eos, max_new_tokens=100, temperature=0.0, k=None):
+    def generate(self, x, eos, temperature=1.0, k=None):
         # x is two dim, batch_size, seq_len
         start_pos = 0
         init_inference = True
+        for block in self.transformer_blocks:
+            block.attn.cache_k = None
+            block.attn.cache_v = None
 
-        while x.shape[1] < self.cfg.max_seq_len:
+        while x.shape[1] < 200:
 
             if init_inference:  # pass the first tokens
-                logits, _ = self(x, start_pos=start_pos, targets=None)
+                print('yes first')
+                logits, _ = self(x, start_pos=0, targets=None)
                 init_inference = False
-                start_pos += x.shape[-1]
+                start_pos = x.shape[-1]
             else:  # Afterwards pass one token at a time
                 logits, _ = self(x[:, -1:], start_pos=start_pos, targets=None)
                 start_pos += 1
@@ -294,7 +298,7 @@ class LilLM(nn.Module):
 
             if k is not None:
                 logits = logits / temperature
-                v, _ = torch.top(logits, k=min(k, logits.size(-1)))
+                v, _ = torch.topk(logits, k=min(k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float('Inf')
 
             probs = F.softmax(logits, dim=-1)
