@@ -16,6 +16,7 @@ from contextlib import nullcontext
 from model.config import Config
 from model.model import LilLM
 from model.utils import calculate_transformer_flops
+torch.serialization.add_safe_globals([Config])
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -55,7 +56,8 @@ dtype = (
 # have accumulated gradients for 0.5M tokens, we do the update, otherwise just accumulate the gradients. keeping batch_size=16, block_size=1024, we need
 # divide into 0.5*1e6/(16*1024) steps, which we name gradient_accumulation_steps
 gradient_accumulation_steps = 8
-init_from = "scratch"
+#init_from = "scratch"
+init_from = "resume"
 
 print(dtype, 'available')
 
@@ -180,8 +182,19 @@ flops_per_step = flops_per_model * model_config.max_batch_size * gradient_accumu
 if init_from == "scratch":
     model = LilLM(model_config)
 elif init_from == "resume":  # resume from a checkpoint
-    pass
-
+    checkpoint = torch.load(os.path.join(out_dir, 'best_model_15K.pt'), map_location=device)
+    model_config = checkpoint['config'] 
+    model = LilLM(model_config)
+    # saved model keys contain some prefix, we need to rename them to our original name
+    state_dict = checkpoint['model'] 
+    unwanted_prefix = '_orig_mod.'
+    for k in list(state_dict.keys()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    
+    model.load_state_dict(state_dict) 
+    num_iter = checkpoint['num_iter']
+    best_val_loss = checkpoint['best_val_loss']
 
 if wandb and master_process:
     wandb.init(project=wandb_project, name=wandb_run_name, config=model_config)
