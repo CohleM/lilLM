@@ -129,7 +129,7 @@ Tokenizer will be stored in `/model/tokenizer`.
 
 #### Download and Tokenize pretraining data
 
-```python
+```
 python data/pretraining/process.py
 ```
 
@@ -139,13 +139,13 @@ It will download the [OpenWebText](https://huggingface.co/datasets/Skylion007/op
 
 If you have Nx GPU per node run.
 
-```python
+```
 torchrun --standalone --nproc_per_node=2 pretrain.py
 ```
 
 If you only have one GPU run,
 
-```python
+```
 python pretrain.py
 ```
 
