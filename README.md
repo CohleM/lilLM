@@ -1,66 +1,54 @@
-A little Language Model
+# A little Language Model
 
+A 39M (lil) parameter model trained on ~8B tokens, on 2xA100 for approximately 2 hours. More details below.
+
+## Introduction
+
+> What I cannot create, I do not understand - Richard Feynman
+
+Simply understanding the model architecture is not enough to fully grasp how these models are trained. This project is the outcome of this realization and the frustration on how abstractions limit our learning process (eg. huggingface transformers) at least when we are starting out. The best thing to do is to implement everything from scratch, within minimal abstraction. Well, this is what this project does. With this project, I plan to add everything(code + my notes) from training tokenizers to the post-tranining phases. One may consider it as a roadmap, but it might not be enough and at the end you will have your own roadmap, so just consider it as an outline or introduction to training Large Language Models.
+
+## Prerequisite
+
+You should have basic understanding of how transformer model works. A great way to start is by watching and implementing yourself [Karpathy's zero to hero](<[text](https://www.youtube.com/watch?v=VMj-3S1tku0&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ)>) series til part 5. Afterwards, you can take a look at Jay Alammar's [The Illustrated Transformer](<[text](https://jalammar.github.io/illustrated-transformer/)>), and then visit Karpathy's [Let's build GPT: from scratch, in code, spelled out.](<[text](https://youtu.be/kCc8FmEb1nY?si=ZyI_mMpGKGfUlkFV)>). This is just my recommendation, please make sure to visit them in any order as per your need.
+
+## Architecture
+
+The architecture differs from transformers architecture in that it uses.
+
+- RMSNorm instead of LayerNorm
+- Rotary Positional Embedding instead of Absolute Positional Embedding
+- SwiGLU activations instead of ReLU
+- Grouped Query Attention instead of Multi-head Attention
+
+Finally, the architecture becomes similar to what is used in Llama 3 models.
+
+![architecture](/misc/lilLM_architecture.png)
+
+| Attribute     | `vocab_size` | `d_model` | `n_layers` | `max_seq_len` | `q_heads` | `kv_heads` | `max_batch_size` |
+| ------------- | ------------ | --------- | ---------- | ------------- | --------- | ---------- | ---------------- |
+| Default Value | `2**13`      | `512`     | `12`       | `512`         | `16`      | `8`        | `32`             |
 
 ### Tokenizer
-Trained on 0.1% of [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext).
 
-`vocab_size`: 2***^13
+This is the first step in training LM. As LMs can't take text as an input we need to convert text to numbers. We build our own vocabulary to map tokens to numbers. A great way understand the whole concept is to watch karpathy's [Let's build the GPT Tokenizer](<[text](https://www.youtube.com/watch?v=zduSFxRajkE&t=3301s)>). You might need some knowledge about unicode and utf-8 to completely grasp the concept in detail for which you can look at my notes on [Tokenizers](<[text](https://cohlem.github.io/sub-notes/tokenization/)>). In this project, We train huggingface tokenizer (this is the only abstraction that we use) to train our tokenizer. It was trained on 0.1% of [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext). Recommended way would be to train the tokenizer on diverse and large dataset to get the best compression rate. For simplicity, I wanted my model to just be able to converse well, I opted for this small subset of the dataset which you can find [here](<[text](https://huggingface.co/datasets/CohleM/openweb-800k)>)
 
-### Pretraining
+### Model architecture
 
-Download and tokenize the dataset and save it to .bin files. 
-*****Key Advantages**
-- reduces tokenization overhead, cause data is already tokenized.
-- saves storage space.
+As described above, the architecture deviates from original transformer model. A couple of changes are:
 
+#### RMSNorm
 
-```python
-from transformers import GPT2Tokenizer
-import numpy as np
+Please read this paper [Root Mean Square Layer Normalization](<[text](https://arxiv.org/pdf/1910.07467)>), A simple conclusion from the paper is that we don't need to calculate the mean across layers while performing normalization as we do in Layer Normalization, just maintaining the variation((scaling)) is sufficient.
 
-# Load tokenizer
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+#### Rotary Positional Embedding
 
-# Example text
-text = "Hello, world! This is an example of tokenization."
+Instead of adding extra positional embedding to our token embeddings, we simply rotate our token embeddings. I would first recommend watching this video [RoPE (Rotary positional embeddings) explained](<[text](https://www.youtube.com/watch?v=GQPOtyITy54)>), then read the paper [ROFORMER](<[text](https://arxiv.org/pdf/2104.09864)>) and finally look at my notes on [RoPE](<[text](https://cohlem.github.io/sub-notes/rope/)>) where I explain ROPE with respect to the code that we use in this project.
 
-# Tokenize the text
-tokens = tokenizer.encode(text)
+#### SwiGLU activations
 
-# Save raw text to a file
-with open("raw_text.txt", "w", encoding="utf-8") as f:
-    f.write(text)
+Take a look at this simple and straightforward blog on [SwiGLU: GLU Variants Improve Transformer (2020)](<[text](https://kikaben.com/swiglu-2020/)>)
 
-# Save tokenized data to a binary file
-tokens_np = np.array(tokens, dtype=np.uint16)
-tokens_np.tofile("tokenized_data.bin")
+#### Grouped Query Attention
 
-# Compare file sizes
-import os
-raw_text_size = os.path.getsize("raw_text.txt")
-tokenized_size = os.path.getsize("tokenized_data.bin")
-
-print(f"Raw text size: {raw_text_size} bytes")
-print(f"Tokenized size: {tokenized_size} bytes")
-```
-
-output
-```
-Raw text size: 49 bytes
-Tokenized size: 24 bytes
-```
-
-*****Explanation**
-`len(list(text.encode('utf-8')))` counts to 49, and each decimal takes 1 byte.
-
-using our tokenizer we compress the tokens within our vocab range (2^13) and save each
-token in uint16 (cause 2^13 < 2^16, very much possible). and each token takes 2 bytes.
-
-in our case `len(tokens_np)*2` is 12 which is 12x2 bytes.
-
-
-
-
-
-
-
+Instead of using multiple heads in our attention, we simply divide K and V to groups and repeat those K,V to q_heas/kv_heads times, and then perform attention. Why? since K and V are repeated, the data movement within GPU is minimized cause it is the most expensive task and is a bottleneck to our training. To understand better, take a look at this video [Variants of Multi-head attention](<[text](https://www.youtube.com/watch?v=pVP0bu8QA2w)>) and then read my notes on [Grouped Query Attention](<[text](https://cohlem.github.io/sub-notes/kv-cache-gqa/)>)
