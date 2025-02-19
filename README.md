@@ -103,7 +103,19 @@ The latest Marvel movie has shattered box office records, grossing over $1 billi
 
 ## Quick Start
 
-### Train Tokenizer
+### Training from Scratch
+
+#### Install dependencies
+
+```
+git clone https://github.com/CohleM/lilLM.git
+```
+
+```
+pip install -r requirements.txt
+```
+
+#### Train Tokenizer
 
 I plan to make this more startforward by adding commandline arguments, but for now please follow the steps described
 
@@ -115,7 +127,7 @@ python train_custom_tokenizer.py
 
 Tokenizer will be stored in `/model/tokenizer`.
 
-### Download and Tokenize pretraining data
+#### Download and Tokenize pretraining data
 
 ```python
 python data/pretraining/process.py
@@ -123,7 +135,7 @@ python data/pretraining/process.py
 
 It will download the [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext) dataset from huggingface and tokenize the whole dataset using our tokenizer saved in `/model/tokenizer` and save tokenized files as `train.bin` and `val.bin`.These are the binary files for our tokenized dataset. `train.bin` results in ~20GB. The reason for tokenizing it beforehand is because we want to maximize our GPU utilization. Since tokenization is a CPU bound task, we can do it before hand while allowing our GPU train more tokens during training.
 
-### Pretrain
+#### Pretrain
 
 If you have Nx GPU per node run.
 
