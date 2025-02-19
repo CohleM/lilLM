@@ -19,7 +19,8 @@ from model.utils import calculate_transformer_flops
 
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/pretraining")
 DEFAULT_OUT_DIR = ""
-DEFAULT_BATCH_SIZE = 128
+#DEFAULT_BATCH_SIZE = 128
+DEFAULT_BATCH_SIZE = 1
 DEFAULT_BLOCK_SIZE = 512
 DEFAULT_MAX_ITERS = 20000
 DEFAULT_GRAD_CLIP = 1.0
@@ -48,7 +49,7 @@ DEFAULT_DTYPE = (
 # divide into 0.5*1e6/(16*1024) steps, which we name gradient_accumulation_steps
 DEFAULT_GRADIENT_ACCUMULATION_STEPS = 8
 #init_from = "scratch"
-DEFAULT_INIT_FROM = "resume"
+DEFAULT_INIT_FROM = "scratch"
 # wandb logging
 DEFAULT_WANDB_PROJECT = "LilLM"
 DEFAULT_WANDB_RUN_NAME = "GPU_RUN_NEW"
@@ -128,7 +129,7 @@ def set_distributed():
 
 def main(args):
     ddp, ddp_rank, ddp_local_rank,ddp_world_size = set_distributed()
-    device = f"cuda:{ddp_local_rank}"
+    device = f"cuda:{ddp_local_rank}" if ddp else 'cpu'
     master_process = ddp_rank == 0
     torch.manual_seed(1337 + ddp_rank)  # set different seed for differnt gpus
     assert args.gradient_accumulation_steps % ddp_world_size == 0
@@ -169,6 +170,7 @@ def main(args):
         num_iter = 0
         best_val_loss = DEFAULT_BEST_VAL_LOSS
     elif args.init_from == "resume":  # resume from a checkpoint
+        torch.serialization.add_safe_globals([Config])
         checkpoint = torch.load(os.path.join(args.out_dir, 'best_model_15K.pt'), map_location=device)
         model_config = checkpoint['config'] 
         model = LilLM(model_config)
@@ -313,7 +315,6 @@ if __name__ == '__main__':
     parser.add_argument("--out_dir", type=str, default=DEFAULT_OUT_DIR, help="Directory to save checkpoints.")
     parser.add_argument("--data_path", type=str, default=DEFAULT_DATA_PATH, help="Path to the training data.")
     parser.add_argument("--init_from", type=str, default=DEFAULT_INIT_FROM, help="resume or scratch")
-    
     args = parser.parse_args()
     main(args)
 
