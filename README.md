@@ -168,3 +168,10 @@ Please also take a look at default config parameters in `model/config.py` and in
 ### Inference
 
 - Add Inference file
+
+## References
+
+- [Llama3](https://github.com/meta-llama/llama3/blob/main/llama/)
+- [nanoGPT](https://github.com/karpathy/nanoGPT)
+- [MiniMind](https://github.com/jingyaogong/minimind/)
+- [TinyLlama](https://github.com/jzhang38/TinyLlama)
