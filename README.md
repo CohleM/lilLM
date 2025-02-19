@@ -52,3 +52,89 @@ Take a look at this simple and straightforward blog on [SwiGLU: GLU Variants Imp
 #### Grouped Query Attention
 
 Instead of using multiple heads in our attention, we simply divide K and V to groups and repeat those K,V to q_heas/kv_heads times, and then perform attention. Why? since K and V are repeated, the data movement within GPU is minimized cause it is the most expensive task and is a bottleneck to our training. To understand better, take a look at this video [Variants of Multi-head attention](https://www.youtube.com/watch?v=pVP0bu8QA2w) and then read my notes on [Grouped Query Attention](https://cohlem.github.io/sub-notes/kv-cache-gqa/)
+
+### Training Details
+
+#### Pretraining Data
+
+The model was trained [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext), which is close to 10 billion tokens according to our tokenizer, but the model was only trained on ~8B tokens (credits ran out :( ).
+
+#### Compute
+
+It was trained on 2XA100 for approximately 2.5 hours.
+
+This is the specification of machine that I used. GPU was rented from [Tensordock](https://www.tensordock.com)
+
+| **Category**      | **Details**            |
+| ----------------- | ---------------------- |
+| **Storage**       | 300 GB                 |
+| **vCPUs**         | 40 AMD EPYC 7513 vCPUs |
+| **RAM**           | 80 GB RAM              |
+| **GPU**           | 2x A100 SXM4 80 GB     |
+| **Compute Price** | $2.400000/hour         |
+| **Storage Price** | $0.075000/hour         |
+| **Total Price**   | $2.475000/hour         |
+
+## Sample outputs after pretraining
+
+Input
+
+```
+Bernie Sanders of Vermont would seek a recount. The delay postponed a definitive answer to whether Clinton had made a clean sweep of five big primaries on
+```
+
+Output
+
+```
+Bernie Sanders of Vermont would seek a recount. The delay postponed a definitive answer to whether Clinton had made a clean sweep of five big primaries on opening day of the Democratic nominating process.\n\nIn response, Sanders theorized that it was possible for her to then-choice’s hand to escalate into a “unprecedented vote” to take the nomination. However, his standing to refrain from carrying coal companies in the wilderness at the time of her Nov. 8 pick-ing defeat surprised the race.\n\nTrump said Wednesday morning that he will back Clinton to replace the incumbent U.S. senator who ran against Bernie Sanders on Tuesday, in a 33-16 historic win over Hillary Clinton. Though, given that both Hillary Clinton and Bernie Sanders enjoyed a restricted number of fallen out of the race on the set of their Iowa primary
+```
+
+Input
+
+```
+The latest Marvel movie has shattered box office records, grossing over $1 billion worldwide in just two weeks. Fans have praised the
+```
+
+Output
+
+```
+The latest Marvel movie has shattered box office records, grossing over $1 billion worldwide in just two weeks. Fans have praised the icons like Roc Nation and Meet The Press for the budgetary ramifications Ain’t Not a breakout promotion.\n\nIn the second week of December, Marvel announced Monday that various Marvel games and Daredevil: The Desolation of holding off it would leave Friday to Evil Geniuses. The Daredevil announced Monday that The Clone Wars is now open and ready for release in late June.
+```
+
+## Quick Start
+
+### Train Tokenizer
+
+I plan to make this more startforward by adding commandline arguments, but for now please follow the steps described
+
+Download the data from [here](https://huggingface.co/datasets/CohleM/openweb-800k) and convert it to jsonl format, open the `train_custom_tokenizer.py` file and replace the file_path with your path/to/your_jsonl_file and then
+
+```python
+python train_custom_tokenizer.py
+```
+
+Tokenizer will be stored in `/model/tokenizer`.
+
+### Download and Tokenize pretraining data
+
+```python
+python data/pretraining/process.py
+```
+
+It will download the [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext) dataset from huggingface and tokenize the whole dataset using our tokenizer saved in `/model/tokenizer` and save tokenized files as `train.bin` and `val.bin`.These are the binary files for our tokenized dataset. `train.bin` results in ~20GB. The reason for tokenizing it beforehand is because we want to maximize our GPU utilization. Since tokenization is a CPU bound task, we can do it before hand while allowing our GPU train more tokens during training.
+
+### Pretrain
+
+If you have Nx GPU per node run.
+
+```python
+torchrun --standalone --nproc_per_node=2 pretrain.py
+```
+
+If you only have one GPU run,
+
+```python
+python pretrain.py
+```
+
+Please also take a look at default config parameters in `model/config.py` and in `pretrain.py`
