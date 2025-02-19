@@ -12,7 +12,7 @@ Simply understanding the model architecture is not enough to fully grasp how the
 
 You should have basic understanding of how transformer model works. A great way to start is by watching and implementing yourself [Karpathy's zero to hero](https://www.youtube.com/watch?v=VMj-3S1tku0&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ) series til part 5. Afterwards, you can take a look at Jay Alammar's [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/), and then visit Karpathy's [Let's build GPT: from scratch, in code, spelled out.](https://youtu.be/kCc8FmEb1nY?si=ZyI_mMpGKGfUlkFV). This is just my recommendation, please make sure to visit them in any order as per your need.
 
-## Architecture
+## lilLM Architecture
 
 The architecture differs from transformers architecture in that it uses.
 
@@ -74,6 +74,10 @@ This is the specification of machine that I used. GPU was rented from [Tensordoc
 | **Compute Price** | $2.400000/hour         |
 | **Storage Price** | $0.075000/hour         |
 | **Total Price**   | $2.475000/hour         |
+
+#### Train/Val loss
+
+![loss](misc/loss.png)
 
 ## Sample outputs after pretraining
 
@@ -150,3 +154,17 @@ python pretrain.py
 ```
 
 Please also take a look at default config parameters in `model/config.py` and in `pretrain.py`
+
+## TODO
+
+### Post Training Stages
+
+- Finetune using SFT and DPO
+
+### Architectural Changes
+
+- Add Mixture of Experts (MoE)
+
+### Inference
+
+- Add Inference file
