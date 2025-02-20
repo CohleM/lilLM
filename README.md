@@ -125,7 +125,7 @@ I plan to make this more startforward by adding commandline arguments, but for n
 
 Download the data from [here](https://huggingface.co/datasets/CohleM/openweb-800k) and convert it to jsonl format, open the `train_custom_tokenizer.py` file and replace the file_path with your path/to/your_jsonl_file and then
 
-```python
+```
 python train_custom_tokenizer.py
 ```
 
@@ -134,8 +134,10 @@ Tokenizer will be stored in `/model/tokenizer`.
 #### Download and Tokenize pretraining data
 
 ```
-python data/pretraining/process.py
+python data/pretraining/process.py --tokenizer_path='/home/user/lilLM/model/tokenizer'
 ```
+
+Make sure to replace the `tokenizer_path` with correct path
 
 It will download the [OpenWebText](https://huggingface.co/datasets/Skylion007/openwebtext) dataset from huggingface and tokenize the whole dataset using our tokenizer saved in `/model/tokenizer` and save tokenized files as `train.bin` and `val.bin`.These are the binary files for our tokenized dataset. `train.bin` results in ~20GB. The reason for tokenizing it beforehand is because we want to maximize our GPU utilization. Since tokenization is a CPU bound task, we can do it before hand while allowing our GPU train more tokens during training.
 
