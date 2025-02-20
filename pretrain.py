@@ -267,7 +267,7 @@ def main(args):
             scaler.scale(loss).backward()
 
         if args.grad_clip != 0.0:
-            # unscale the gradients, cause we need higher precision in AdamW optimzers, and we don't use mixed-precision
+            # unscale the gradients, cause we need higher precision in AdamW optimizers, and we don't use mixed-precision
             scaler.unscale_(optimizer)
             # clip the gradients to prevent vanishing gradient problem
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
