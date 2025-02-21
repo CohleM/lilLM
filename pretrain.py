@@ -171,7 +171,7 @@ def main(args):
         best_val_loss = DEFAULT_BEST_VAL_LOSS
     elif args.init_from == "resume":  # resume from a checkpoint
         torch.serialization.add_safe_globals([Config])
-        checkpoint = torch.load(os.path.join(args.out_dir, 'best_model_15K.pt'), map_location=device)
+        checkpoint = torch.load(os.path.join(args.out_dir, 'best_model.pt'), map_location=device)
         model_config = checkpoint['config'] 
         model = LilLM(model_config)
         # saved model keys contain some prefix, we need to rename them to our original name
