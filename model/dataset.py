@@ -1,12 +1,13 @@
-from transformers import load_dataset
+from datasets import load_dataset
+from transformers import AutoTokenizer
 import torch
 
 
 class SFTDataset:
-    def __init__(self,tokenizer, max_seq_len, data_path = 'CohleM/lillm-sft-dataset'):
+    def __init__(self,tokenizer_path, max_seq_len, data_path = 'CohleM/lillm-sft-dataset'):
         self.data = load_dataset(data_path)
         self.max_seq_len = max_seq_len
-        self.tokenizer = tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.tokenized_data = self.data.map(self._tokenize, num_proc = 8)
         
     def _add_chat_format(self, example):
@@ -56,5 +57,5 @@ class SFTDataset:
         batches = torch.randint(0, self.data[split].num_rows, (batch_size,))
         out = self.tokenized_data[split][batches]
         
-        return out['X'], out['Y'], out['loss_mask']
+        return torch.tensor(out['X'], dtype=torch.long), torch.tensor(out['Y'], dtype=torch.long) , torch.tensor(out['loss_mask'], dtype=torch.long)
     
