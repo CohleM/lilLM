@@ -283,10 +283,9 @@ class LilLM(nn.Module):
             block.attn.cache_k = None
             block.attn.cache_v = None
 
-        while x.shape[1] < 200:
+        while x.shape[1] < self.cfg.max_seq_len:
 
             if init_inference:  # pass the first tokens
-                print('yes first')
                 logits, _ = self(x, start_pos=0, targets=None)
                 init_inference = False
                 start_pos = x.shape[-1]
