@@ -2,14 +2,19 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 import torch
 
-
 class SFTDataset:
-    def __init__(self,tokenizer_path, max_seq_len, data_path = 'CohleM/lillm-sft-dataset'):
+    def __init__(self,tokenizer_path, max_seq_len, data_path = 'CohleM/lillm-sft-dataset-v1'):
         self.data = load_dataset(data_path)
         self.max_seq_len = max_seq_len
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-        self.tokenized_data = self.data.map(self._tokenize, num_proc = 8)
-        
+        self.total_tokens = 0
+        self.filtered_data = self.data.filter(self._filter_by_token_len, num_proc = 8)
+        self.tokenized_data = self.filtered_data.map(self._tokenize, num_proc = 8)
+
+    def _filter_by_token_len(self, example):
+        template = self._add_chat_format(example)
+        return len(self.tokenizer.encode(template)) < self.max_seq_len
+    
     def _add_chat_format(self, example):
         items = example['conversation']
         template = ""
@@ -41,7 +46,9 @@ class SFTDataset:
         template = self._add_chat_format(example)
 
         x = self.tokenizer.encode(template)
+
         x += (self.max_seq_len - len(x))* [0]
+        x = x[:self.max_seq_len]
         
         X = torch.tensor(x[:-1], dtype=torch.long)
         Y = torch.tensor(x[1:], dtype=torch.long)
@@ -54,8 +61,9 @@ class SFTDataset:
     
     
     def get_batch(self, split, batch_size):
-        batches = torch.randint(0, self.data[split].num_rows, (batch_size,))
+        batches = torch.randint(0, self.tokenized_data[split].num_rows, (batch_size,))
         out = self.tokenized_data[split][batches]
         
         return torch.tensor(out['X'], dtype=torch.long), torch.tensor(out['Y'], dtype=torch.long) , torch.tensor(out['loss_mask'], dtype=torch.long)
+
     

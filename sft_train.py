@@ -24,13 +24,13 @@ DEFAULT_TOKENIZER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__))
 
 DEFAULT_OUT_DIR = ""
 #DEFAULT_BATCH_SIZE = 128
-DEFAULT_BATCH_SIZE = 1
+DEFAULT_BATCH_SIZE = 8 
 DEFAULT_BLOCK_SIZE = 512
-DEFAULT_MAX_ITERS = 20000
+DEFAULT_MAX_ITERS = 1560 
 DEFAULT_GRAD_CLIP = 1.0
-DEFAULT_EVAL_INTERVAL = 200  # do eval every 200 interval
-DEFAULT_LOG_INTERVAL = 10
-DEFAULT_EVAL_ITERS = 20  # for accumulate eval losses for 200 iters
+DEFAULT_EVAL_INTERVAL = 20  # do eval every 200 interval
+DEFAULT_LOG_INTERVAL = 5 
+DEFAULT_EVAL_ITERS = 5  # for accumulate eval losses for 200 iters
 DEFAULT_BEST_VAL_LOSS = 1e9
 # learning rate decay settings
 DEFAULT_DECAY_LR = True  # whether to decay the learning rate
@@ -39,9 +39,15 @@ DEFAULT_LR_DECAY_ITERS = 600000  # should be ~= max_iters per Chinchilla
 DEFAULT_MIN_LR = 6e-5  # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 DEFAULT_LEARNING_RATE = 6e-4  # max learning rate
 DEFAULT_RUNNING_MFU = -1
+
+# Check for available devices
 DEFAULT_DEVICE = (
-    "cuda" if torch.cuda.is_available() else "cpu"
-)  # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
+    "cuda" if torch.cuda.is_available() else  # Check for CUDA (NVIDIA GPU)
+    "mps" if torch.backends.mps.is_available() else  # Check for MPS (Apple Silicon GPU)
+    "cpu"  # Default to CPU if neither CUDA nor MPS is available
+)
+print('default device', DEFAULT_DEVICE)
+# examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
 DEFAULT_DTYPE = (
     "bfloat16"
     if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
@@ -51,7 +57,7 @@ DEFAULT_DTYPE = (
 # 488 batch_size to do it in the single run, but our gpu can't fit it, so we divide further, i.e we accumulate gradient on smaller batch, once we
 # have accumulated gradients for 0.5M tokens, we do the update, otherwise just accumulate the gradients. keeping batch_size=16, block_size=1024, we need
 # divide into 0.5*1e6/(16*1024) steps, which we name gradient_accumulation_steps
-DEFAULT_GRADIENT_ACCUMULATION_STEPS = 8
+DEFAULT_GRADIENT_ACCUMULATION_STEPS = 8 
 #init_from = "scratch"
 DEFAULT_INIT_FROM = "scratch"
 # wandb logging
@@ -84,15 +90,15 @@ def estimate_losses(model, sft_dataset, batch_size, block_size, device, eval_ite
         each_loss = 0
         for i in range(eval_iters):
 
-            x,y, loss_mask = sft_dataset.get_data(split, batch_size)
-            x = torch.tensor(x, dtype=torch.long).to(device)
-            y = torch.tensor(y, dtype=torch.long).to(device)
-            loss_mask = torch.tensor(loss_mask, dtype=torch.long).to(device)
+            x,y, loss_mask = sft_dataset.get_batch(split, batch_size)
+            x = x.to(device)
+            y = y.to(device)
+            loss_mask = loss_mask.to(device)
             #x, y = data_loader(data_path, split,batch_size, block_size, device, device_type)
             with ctx:
                 logits, _ = model(x, targets=y)
-                loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), targets.view(-1), reduction='none')
-                loss = (loss*loss_mask) / loss_mask.sum()
+                loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), reduction='none').view(y.size())
+                loss = (loss*loss_mask).sum() / loss_mask.sum()
 
             each_loss += loss.item()
         out[split] = each_loss / eval_iters
@@ -114,7 +120,12 @@ def set_distributed():
 
 def main(args):
     ddp, ddp_rank, ddp_local_rank,ddp_world_size = set_distributed()
-    device = f"cuda:{ddp_local_rank}" if ddp else 'cpu'
+    #device = f"cuda:{ddp_local_rank}" if ddp else 'cpu'
+    if ddp:
+        device = f"cuda:{ddp_local_rank}"
+    else:
+        device = args.device
+
     master_process = ddp_rank == 0
     torch.manual_seed(1337 + ddp_rank)  # set different seed for differnt gpus
     assert args.gradient_accumulation_steps % ddp_world_size == 0
@@ -167,7 +178,7 @@ def main(args):
                 state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         
         model.load_state_dict(state_dict) 
-        num_iter = checkpoint['num_iter']
+        num_iter = 0 
         best_val_loss = checkpoint['best_val_loss']
 
     if wandb and master_process:
@@ -229,10 +240,10 @@ def main(args):
                 }
                 torch.save(checkpoint, os.path.join(args.out_dir, "best_model.pt"))
         
-        x,y, loss_mask = sft_dataset.get_data('train', args.max_batch_size)
-        x = torch.tensor(x, dtype=torch.long).to(device)
-        y = torch.tensor(y, dtype=torch.long).to(device)
-        loss_mask = torch.tensor(loss_mask, dtype=torch.long).to(device)
+        x,y, loss_mask = sft_dataset.get_batch('train', args.batch_size)
+        x = x.to(device)
+        y = y.to(device)
+        loss_mask = loss_mask.to(device)
 
         for micro_step in range(args.gradient_accumulation_steps):
             #x, y = data_loader(args.data_path, "train",args.batch_size, args.block_size,device, device_type)
@@ -248,15 +259,15 @@ def main(args):
                 )
             with ctx:
                 logits, _ = model(x, targets=y)
-                loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), targets.view(-1), reduction='none')
-                loss = (loss*loss_mask) / loss_mask.sum() 
+                loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), reduction='none').view(y.size())
+                loss = (loss*loss_mask).sum() / loss_mask.sum() 
                 loss = loss / args.gradient_accumulation_steps
  
-            x,y, loss_mask = sft_dataset.get_data('train', args.max_batch_size)
+            x,y, loss_mask = sft_dataset.get_batch('train', args.batch_size)
 
-            x = torch.tensor(x, dtype=torch.long).to(device)
-            y = torch.tensor(y, dtype=torch.long).to(device)
-            loss_mask = torch.tensor(loss_mask, dtype=torch.long).to(device)
+            x = x.to(device)
+            y = y.to(device)
+            loss_mask = loss_mask.to(device)
 
 
             # gradient sync happens here
