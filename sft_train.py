@@ -18,9 +18,11 @@ from model.model import LilLM
 from model.utils import calculate_transformer_flops
 from model.dataset import SFTDataset
 
-
-DEFAULT_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/pretraining")
+# Only these variables need changes
+DEFAULT_DATA_PATH = "CohleM/lillm-sft-dataset-v1"
 DEFAULT_TOKENIZER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model/tokenizer")
+DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best_model_15K.pt")
+
 
 DEFAULT_OUT_DIR = ""
 #DEFAULT_BATCH_SIZE = 128
@@ -167,7 +169,8 @@ def main(args):
         best_val_loss = DEFAULT_BEST_VAL_LOSS
     elif args.init_from == "resume":  # resume from a checkpoint
         torch.serialization.add_safe_globals([Config])
-        checkpoint = torch.load(os.path.join(args.out_dir, 'best_model_15K.pt'), map_location=device)
+        #checkpoint = torch.load(os.path.join(args.out_dir, 'best_model_15K.pt'), map_location=device)
+        checkpoint = torch.load(args.model_path, map_location=device)
         model_config = checkpoint['config'] 
         model = LilLM(model_config)
         # saved model keys contain some prefix, we need to rename them to our original name
@@ -191,7 +194,7 @@ def main(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     
     # pass data_path with your own huggingface dataset's url
-    sft_dataset = SFTDataset(tokenizer_path=args.tokenizer_path,max_seq_len=model_config.max_seq_len, data_path='CohleM/lillm-sft-dataset-v1')
+    sft_dataset = SFTDataset(tokenizer_path=args.tokenizer_path,max_seq_len=model_config.max_seq_len, data_path=args.data_path)
 
     if DEFAULT_COMPILE and ddp:
         print("torch compiling the model..")
@@ -238,7 +241,7 @@ def main(args):
                     "num_iter": num_iter,
                     "config": model_config,
                 }
-                torch.save(checkpoint, os.path.join(args.out_dir, "best_model.pt"))
+                torch.save(checkpoint, os.path.join(args.out_dir, "best_model_sft.pt"))
         
         x,y, loss_mask = sft_dataset.get_batch('train', args.batch_size)
         x = x.to(device)
@@ -261,6 +264,7 @@ def main(args):
                 logits, _ = model(x, targets=y)
                 loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), reduction='none').view(y.size())
                 loss = (loss*loss_mask).sum() / loss_mask.sum() 
+                print('yoo', loss)
                 loss = loss / args.gradient_accumulation_steps
  
             x,y, loss_mask = sft_dataset.get_batch('train', args.batch_size)
@@ -326,9 +330,10 @@ if __name__ == '__main__':
     parser.add_argument("--wandb_project", type=str, default=DEFAULT_WANDB_PROJECT, help="Wandb project name.")
     parser.add_argument("--wandb_run_name", type=str, default=DEFAULT_WANDB_RUN_NAME, help="Wandb run name.")
     parser.add_argument("--out_dir", type=str, default=DEFAULT_OUT_DIR, help="Directory to save checkpoints.")
-    parser.add_argument("--data_path", type=str, default=DEFAULT_DATA_PATH, help="Path to the training data.")
+    parser.add_argument("--data_path", type=str, default=DEFAULT_DATA_PATH, help="Huggingface's dataset url example: CohleM/lillm-sft-dataset-v1")
     parser.add_argument("--init_from", type=str, default=DEFAULT_INIT_FROM, help="resume or scratch")
     parser.add_argument("--tokenizer_path", type=str, default=DEFAULT_TOKENIZER_PATH, help="tokenizer path")
+    parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH, help="path to the model you want to start training from")
     args = parser.parse_args()
     main(args)
 
