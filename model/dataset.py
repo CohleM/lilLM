@@ -7,7 +7,6 @@ class SFTDataset:
         self.data = load_dataset(data_path)
         self.max_seq_len = max_seq_len
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-        self.total_tokens = 0
         self.filtered_data = self.data.filter(self._filter_by_token_len, num_proc = 8)
         self.tokenized_data = self.filtered_data.map(self._tokenize, num_proc = 8)
 
