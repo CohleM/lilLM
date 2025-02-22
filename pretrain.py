@@ -129,7 +129,12 @@ def set_distributed():
 
 def main(args):
     ddp, ddp_rank, ddp_local_rank,ddp_world_size = set_distributed()
-    device = f"cuda:{ddp_local_rank}" if ddp else 'cpu'
+    #device = f"cuda:{ddp_local_rank}" if ddp else 'cpu'
+    if ddp:
+        device = f"cuda:{ddp_local_rank}"
+    else:
+        device = args.device
+
     master_process = ddp_rank == 0
     torch.manual_seed(1337 + ddp_rank)  # set different seed for differnt gpus
     assert args.gradient_accumulation_steps % ddp_world_size == 0
