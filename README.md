@@ -157,19 +157,31 @@ python pretrain.py
 
 Please also take a look at default config parameters in `model/config.py` and in `pretrain.py`
 
+#### Supervised Fine-tuning
+
+Download the pretrained model from here: [huggingface](https://huggingface.co/CohleM/LilLM-39M-8B-tokens)
+
+```
+python sft_train.py --init_from="resume" --model_path="/home/user/lillm/best_model_15K.pt" --tokenizer_path="/home/user/lillm/model/tokenizer/" --data_path="CohleM/lillm-sft-dataset-v1"
+```
+
+#### Inference
+
+Inference can be done using the same file for both supervised fine-tuned model or pretrained model, simply replace the mode_path and the mode_type i.e either "sft" or "pretrain".
+
+```
+python inference.py --model_type="sft" --text="What is the capital of Germany?" --model_path="/home/user/lillm/best_model_790_sft.pt"
+```
+
 ## TODO
 
 ### Post Training Stages
 
-- Finetune using SFT and DPO
+- Finetune using DPO
 
 ### Architectural Changes
 
 - Add Mixture of Experts (MoE)
-
-### Inference
-
-- Add Inference file
 
 ## References
 
