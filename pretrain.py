@@ -211,7 +211,6 @@ def main(args):
 
 
     while True:
-        t1 = time.time()
         # pick learning rate
         lr = get_lr(num_iter, args.learning_rate, args.min_lr, args.warmup_iters, args.lr_decay_iters) if DEFAULT_DECAY_LR else args.learning_rate
 
@@ -247,6 +246,7 @@ def main(args):
                 }
                 torch.save(checkpoint, os.path.join(args.out_dir, "best_model.pt"))
 
+        t1 = time.time()
         for micro_step in range(args.gradient_accumulation_steps):
             x, y = data_loader(args.data_path, "train",args.batch_size, args.block_size,device, device_type)
             # x,y = torch.randint(0,10,(10,256)).to(device), torch.randint(0,10,(10,256)).to(device)
