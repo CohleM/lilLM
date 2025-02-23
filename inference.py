@@ -53,8 +53,8 @@ if __name__=='__main__':
     template_text = add_chat_format(args.text) if args.model_type == "sft" else args.text
     
     t0 = time.time()
-    start_prompt = torch.tensor(tokenizer.encode(template_text)).unsqueeze(dim=0)
-    eos = torch.tensor([[2]])
+    start_prompt = torch.tensor(tokenizer.encode(template_text)).unsqueeze(dim=0).to(device)
+    eos = torch.tensor([[2]]).to(device)
     print(tokenizer.decode(model.generate(start_prompt, eos).squeeze()))
     t1 = time.time()
 
