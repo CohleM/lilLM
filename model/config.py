@@ -14,3 +14,5 @@ class Config:
     multiple_of: int = 128
     eps: float = 1e-6
     flash: bool = True
+    num_experts=8,
+    num_expert_per_tok=2
