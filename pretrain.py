@@ -19,8 +19,7 @@ from model.utils import calculate_transformer_flops
 
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/pretraining")
 DEFAULT_OUT_DIR = ""
-#DEFAULT_BATCH_SIZE = 128
-DEFAULT_BATCH_SIZE = 1
+DEFAULT_BATCH_SIZE = 128
 DEFAULT_BLOCK_SIZE = 512
 DEFAULT_MAX_ITERS = 20000
 DEFAULT_GRAD_CLIP = 1.0
@@ -190,7 +189,14 @@ def main(args):
         num_iter = checkpoint['num_iter']
         best_val_loss = checkpoint['best_val_loss']
 
-    if wandb and master_process:
+    if args.init_from == "resume" and master_process:
+        wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_run_name,
+            id=checkpoint.get('wandb_run_id'),  # You'll need to save this in checkpoint
+            resume="must"
+        )
+    elif wandb and master_process:
         wandb.init(project=args.wandb_project, name=args.wandb_run_name, config=model_config)
 
     model.to(device)
@@ -243,6 +249,7 @@ def main(args):
                     "best_val_loss": best_val_loss,
                     "num_iter": num_iter,
                     "config": model_config,
+                    "wandb_run_id": wandb.run.id
                 }
                 torch.save(checkpoint, os.path.join(args.out_dir, "best_model.pt"))
 
