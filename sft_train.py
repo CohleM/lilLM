@@ -26,9 +26,9 @@ DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "b
 
 DEFAULT_OUT_DIR = ""
 #DEFAULT_BATCH_SIZE = 128
-DEFAULT_BATCH_SIZE = 8 
+DEFAULT_BATCH_SIZE = 64 
 DEFAULT_BLOCK_SIZE = 512
-DEFAULT_MAX_ITERS = 1560 
+DEFAULT_MAX_ITERS = 2500 
 DEFAULT_GRAD_CLIP = 1.0
 DEFAULT_EVAL_INTERVAL = 20  # do eval every 200 interval
 DEFAULT_LOG_INTERVAL = 5 
@@ -39,9 +39,9 @@ DEFAULT_DECAY_LR = True  # whether to decay the learning rate
 DEFAULT_WARMUP_ITERS = 2000  # how many steps to warm up for
 DEFAULT_LR_DECAY_ITERS = 600000  # should be ~= max_iters per Chinchilla
 DEFAULT_MIN_LR = 6e-5  # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
-DEFAULT_LEARNING_RATE = 6e-4  # max learning rate
+DEFAULT_LEARNING_RATE = 3e-4  # max learning rate
 DEFAULT_RUNNING_MFU = -1
-
+DEFAULT_DROPOUT_RATE = 0.2
 # Check for available devices
 DEFAULT_DEVICE = (
     "cuda" if torch.cuda.is_available() else  # Check for CUDA (NVIDIA GPU)
@@ -64,7 +64,7 @@ DEFAULT_GRADIENT_ACCUMULATION_STEPS = 8
 DEFAULT_INIT_FROM = "scratch"
 # wandb logging
 DEFAULT_WANDB_PROJECT = "LilLM"
-DEFAULT_WANDB_RUN_NAME = "GPU_RUN_SFT_just_testing.."
+DEFAULT_WANDB_RUN_NAME = "GPU_RUN"
 
 DEFAULT_COMPILE = True
 
@@ -149,7 +149,7 @@ def main(args):
     )
 
     print("tokens per iteration", args.gradient_accumulation_steps * ddp_world_size * args.batch_size * args.block_size)
-    model_config = Config(max_seq_len=args.block_size, max_batch_size=args.batch_size)
+    model_config = Config(max_seq_len=args.block_size, max_batch_size=args.batch_size, dropout=args.dropout_rate)
     # Flops estimation
     flops_per_model = calculate_transformer_flops(
         seq_len=model_config.max_seq_len,
@@ -207,9 +207,9 @@ def main(args):
 
     
     while True:
-        t1 = time.time()
         # pick learning rate
-        lr = get_lr(num_iter, args.learning_rate, args.min_lr, args.warmup_iters, args.lr_decay_iters) if DEFAULT_DECAY_LR else args.learning_rate
+        #lr = get_lr(num_iter, args.learning_rate, args.min_lr, args.warmup_iters, args.lr_decay_iters) if DEFAULT_DECAY_LR else args.learning_rate
+        lr = args.learning_rate
 
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
@@ -248,6 +248,7 @@ def main(args):
         y = y.to(device)
         loss_mask = loss_mask.to(device)
 
+        t1 = time.time()
         for micro_step in range(args.gradient_accumulation_steps):
             #x, y = data_loader(args.data_path, "train",args.batch_size, args.block_size,device, device_type)
             # x,y = torch.randint(0,10,(10,256)).to(device), torch.randint(0,10,(10,256)).to(device)
@@ -264,7 +265,6 @@ def main(args):
                 logits, _ = model(x, targets=y)
                 loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), y.view(-1), reduction='none').view(y.size())
                 loss = (loss*loss_mask).sum() / loss_mask.sum() 
-                print('yoo', loss)
                 loss = loss / args.gradient_accumulation_steps
  
             x,y, loss_mask = sft_dataset.get_batch('train', args.batch_size)
@@ -315,6 +315,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Fine Tune lilLM using SFT')
     parser.add_argument("--batch_size", type=int, default=DEFAULT_BATCH_SIZE, help="Batch size for training.")
     parser.add_argument("--block_size", type=int, default=DEFAULT_BLOCK_SIZE, help="Block size for training.")
+    parser.add_argument("--dropout_rate", type=int, default=DEFAULT_DROPOUT_RATE, help="Dropout rate mostly used in sft")
     parser.add_argument("--learning_rate", type=float, default=DEFAULT_LEARNING_RATE, help="Maximum learning rate.")
     parser.add_argument("--min_lr", type=float, default=DEFAULT_MIN_LR, help="Minimum learning rate.")
     parser.add_argument("--max_iters", type=int, default=DEFAULT_MAX_ITERS, help="Maximum number of iterations.")
