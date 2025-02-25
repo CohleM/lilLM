@@ -23,7 +23,7 @@ if __name__=='__main__':
     split_dataset['val'] = split_dataset.pop('test')
 
     def tokenize(item):
-        ids = tokenizer.encode(item['text'] + '<|endoftext|>')
+        ids = tokenizer.encode(item['text'] + '</s>')
         return {'ids': ids, 'len': len(ids)}
 
     #under the hood, data is broken down into shards/batches, accessed using Memory mapping, and only processing batches in the RAM. 
