@@ -21,7 +21,7 @@ from model.dataset import SFTDataset
 # Only these variables need changes
 DEFAULT_DATA_PATH = "CohleM/lillm-sft-dataset-512-including-hard-coded-mixture"
 DEFAULT_TOKENIZER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model/tokenizer")
-DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best_model_15K.pt")
+DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "best_model.pt")
 
 
 DEFAULT_OUT_DIR = ""
