@@ -141,9 +141,11 @@ The special tokens don't carry much meaning, only the EOS token i.e </s> is cons
 
 The model was fine-tuned for close to 4 epochs. We stop when we observe the model is overfitting.
 
-![sft_loss](misc/sft_loss.png)
+![sft_loss](/misc/sft_loss.png)
 
-The model was futher fine-tuned on [hard-coded](https://huggingface.co/datasets/CohleM/lillm-sft-hard-coded) examples for some(20-30) steps. Find the code for SFT in [sft_train.py](https://github.com/CohleM/lilLM/blob/master/sft_train.py)
+The model was futher fine-tuned on [hard-coded](https://huggingface.co/datasets/CohleM/lillm-sft-hard-coded) examples for some(20-30) steps. Find the code for SFT in [sft_train.py](https://github.com/CohleM/lilLM/blob/master/sft_train.py).
+
+Fine-tuning was done on 1xRTX 4090 for about 1.5 hours. Thanks to [Yuchen Jin](https://x.com/Yuchenj_UW) for providing GPU credits.
 
 ## Sample outputs after pretraining
 
