@@ -141,7 +141,7 @@ The special tokens don't carry much meaning, only the EOS token i.e </s> is cons
 
 The model was fine-tuned for close to 4 epochs. We stop when we observe the model is overfitting.
 
-![sft_loss](/misc/sft_loss.png)
+![sft_loss](misc/sft_loss.png)
 
 The model was futher fine-tuned on [hard-coded](https://huggingface.co/datasets/CohleM/lillm-sft-hard-coded) examples for some(20-30) steps. Find the code for SFT in [sft_train.py](https://github.com/CohleM/lilLM/blob/master/sft_train.py).
 
@@ -298,6 +298,12 @@ Inference can be done using the same file for both supervised fine-tuned model o
 
 ```
 python inference.py --model_type="sft" --text="What is the capital of Germany?" --model_path="/home/user/lillm/best_model_790_sft.pt"
+```
+
+If you want to use chat interface use
+
+```
+python inference_gradio.py --model_type="sft" --text="What is the capital of Germany?" --model_path="/home/user/lillm/best_model_790_sft.pt"
 ```
 
 ## TODO
