@@ -55,9 +55,10 @@ Finally, the architecture becomes similar to what is used in Llama 3 models. Fin
 
 ![architecture](/misc/lilLM_architecture.png)
 
-| Attribute     | `vocab_size` | `d_model` | `n_layers` | `max_seq_len` | `q_heads` | `kv_heads` | `max_batch_size` |
-| ------------- | ------------ | --------- | ---------- | ------------- | --------- | ---------- | ---------------- |
-| Default Value | `2**13`      | `512`     | `12`       | `512`         | `16`      | `8`        | `32`             |
+| Model      | Download Link                                                         | `vocab_size` | `d_model` | `n_layers` | `max_seq_len` | `q_heads` | `kv_heads` | `max_batch_size` |
+| ---------- | --------------------------------------------------------------------- | ------------ | --------- | ---------- | ------------- | --------- | ---------- | ---------------- |
+| LilLM-39M  | [Download](https://huggingface.co/jonwondo/lilLM_40M_param_10B_tok)   | `2**13`      | `512`     | `12`       | `512`         | `16`      | `8`        | `32`             |
+| LilLM-300M | [Download](https://huggingface.co/jonwondo/lilLM_300M_param_9_5B_tok) | `2**13`      | `1024`    | `24`       | `512`         | `16`      | `8`        | `32`             |
 
 ### RMSNorm
 
