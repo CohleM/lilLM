@@ -311,6 +311,7 @@ python inference_gradio.py --model_type="sft" --text="What is the capital of Ger
 
 ### Post Training Stages
 
+- Train lora, and add inference code for lora
 - Finetune using DPO
 
 ### Architectural Changes
